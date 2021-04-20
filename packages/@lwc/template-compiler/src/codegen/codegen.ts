@@ -11,7 +11,7 @@ import { toPropertyName } from '../shared/utils';
 import { walk } from 'estree-walker';
 import * as t from '../shared/estree';
 import { isComponentProp } from '../shared/ir';
-import { IRNode, TemplateExpression, TemplateIdentifier } from '../shared/types';
+import { IRNode, TemplateExpression } from '../shared/types';
 import { Scope } from './scope';
 
 type RenderPrimitive =
@@ -51,6 +51,7 @@ const RENDER_APIS: { [primitive in RenderPrimitive]: RenderPrimitiveDefinition }
 };
 
 export default class CodeGen {
+    scopesCount = 0;
     currentId = 0;
     currentKey = 0;
 
@@ -58,10 +59,10 @@ export default class CodeGen {
     usedSlots: { [name: string]: t.Identifier } = {};
     memorizedIds: t.Identifier[] = [];
 
-    currentScope = new Scope();
+    currentScope = new Scope(0);
 
     createScope() {
-        const newScope = new Scope();
+        const newScope = new Scope(++this.scopesCount);
 
         newScope.parentScope = this.currentScope;
         this.currentScope.childScopes.push(newScope);
@@ -77,37 +78,11 @@ export default class CodeGen {
         this.currentScope = this.currentScope.parentScope;
     }
 
-    getPropName(identifier: TemplateIdentifier): t.MemberExpression | t.Identifier {
-        return this.currentScope.getPropName(identifier);
-        // const { name } = identifier;
-        // let memoizedPropName = this.usedProps.get(name);
-        //
-        // if (!memoizedPropName) {
-        //     const generatedExpr = new NodeRefProxy(
-        //         t.memberExpression(t.identifier(TEMPLATE_PARAMS.INSTANCE), identifier)
-        //     );
-        //     memoizedPropName = {
-        //         name,
-        //         gen: `$cv${this.usedProps.size}`,
-        //         firstUse: generatedExpr,
-        //         replacement: generatedExpr.instance,
-        //         replaced: false,
-        //     };
-        //     this.usedProps.set(name, memoizedPropName);
-        // } else if (!memoizedPropName.replaced) {
-        //     memoizedPropName.firstUse.swap(t.identifier(memoizedPropName.gen));
-        //     memoizedPropName.replaced = true;
-        // }
-        //
-        // return memoizedPropName.replacement;
-    }
-
     bindExpression(expression: TemplateExpression, irNode: IRNode): t.Expression {
         const self = this;
         if (t.isIdentifier(expression)) {
             if (isComponentProp(expression, irNode)) {
-                return this.getPropName(expression);
-                // return t.memberExpression(t.identifier(TEMPLATE_PARAMS.INSTANCE), expression);
+                return this.currentScope.getPropName(expression);
             } else {
                 return expression;
             }
@@ -122,8 +97,7 @@ export default class CodeGen {
                     parent.object === node &&
                     isComponentProp(node, irNode)
                 ) {
-                    this.replace(self.getPropName(node));
-                    // this.replace(t.memberExpression(t.identifier(TEMPLATE_PARAMS.INSTANCE), node));
+                    this.replace(self.currentScope.getPropName(node));
                 }
             },
         });

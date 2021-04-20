@@ -70,7 +70,7 @@ function transform(root: IRElement, codeGen: CodeGen, state: State): t.Expressio
         res = applyInlineIf(element, res);
         res = applyInlineFor(element, res);
 
-        return res as t.Expression;
+        return res;
     }
 
     function transformTemplate(element: IRElement): t.Expression | t.ArrayExpression['elements'] {
@@ -231,11 +231,9 @@ function transform(root: IRElement, codeGen: CodeGen, state: State): t.Expressio
 
         codeGen.popScope();
 
-        // still we don't take into account the scope variables, we will soon
         const iterable = codeGen.bindExpression(expression, element);
 
         return codeGen.genIterator(iterable, forOfFn);
-        // return codeGen.genIterator(iterable, iterationFunction);
     }
 
     function applyTemplateForOf(element: IRElement, fragmentNodes: t.Expression) {
@@ -265,8 +263,7 @@ function transform(root: IRElement, codeGen: CodeGen, state: State): t.Expressio
         }
 
         if (t.isArrayExpression(fragmentNodes)) {
-            // Notice that no optimization can be done when there's only one element, because it may be an if call
-            // which uses the spread element.
+            // Notice that no optimization can be done when there's only one element and is a spread element.
             if (
                 fragmentNodes.elements.length === 1 &&
                 fragmentNodes.elements[0]?.type !== 'SpreadElement'
@@ -487,23 +484,6 @@ function generateTemplateFunction(templateRoot: IRElement, state: State): t.Func
             ),
         ]),
     ];
-
-    // const foo = codeGen.getUsedComponentProperties();
-    //
-    // if (Object.keys(foo).length > 0) {
-    //     body.push(
-    //         t.variableDeclaration('const', [
-    //             t.variableDeclarator(
-    //                 t.objectPattern(
-    //                     Object.keys(foo).map((name) =>
-    //                         t.assignmentProperty(t.identifier(name), foo[name])
-    //                     )
-    //                 ),
-    //                 t.identifier(TEMPLATE_PARAMS.INSTANCE)
-    //             ),
-    //         ])
-    //     );
-    // }
 
     dumpScope(codeGen.currentScope, body, new Map<string, string>());
 
